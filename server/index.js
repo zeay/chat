@@ -2,11 +2,16 @@ const express = require("express");
 const path  = require("path");
 const http = require("http");
 const socketIO =  require("socket.io");
-const genrateMessage = require("./utils/message");
+
+
+const {genrateMessage, genrateLocationMessage} = require("./utils/message");
+const {realString} = require("./utils/validate");
+const {User} = require('./utils/user');
 const staticDirName = path.join(__dirname, "../client");
 
 const port = process.env.PORT || 3000;
 const app = express();
+const users = new User();
 
 var server = http.createServer(app);
 var io = socketIO(server);
@@ -16,18 +21,42 @@ app.use(express.static(staticDirName));
 io.on("connection", (socket)=>{
     console.log("New user Connected " +socket.id);
     
-    socket.emit("newMessage", genrateMessage("Admin", "Welcome to the chat App"));
-    
-    socket.broadcast.emit("newMessage", genrateMessage("Admin", "New User Connected "+ socket.id));
+    socket.on('join', (param, callback)=> {
+        if(!realString(param.displayName) || !realString(param.roomName)){
+            return callback("Name and Room Name must be there and schould be in string");
+        }
+        socket.join(param.roomName);
+        users.removeUser(socket.id);
+        users.addUser(socket.id, param.displayName, param.roomName);
+        
+        io.to(param.roomName).emit("updateUserList", users.getUserList(param.roomName));
+        socket.emit("newMessage", genrateMessage("Admin", "Welcome to the chat App"));
+        socket.broadcast.to(param.roomName).emit("newMessage", genrateMessage("Admin", "New User Connected "+param.displayName));
+        callback();
+    })
     
     socket.on("createMessage", (data, accknowledgement)=>{
-        console.log("New Message Created ", data);
-        socket.broadcast.emit("newMessage", genrateMessage(data.name, data.message));
-        accknowledgement("This is from server");
+        var user = users.getUser(socket.id);
+        if(user && realString(data.message)){
+            io.to(user.room).emit("newMessage", genrateMessage(user.name, data.message));
+        }
+        accknowledgement();
+    });
+    socket.on("positionCords", (cords)=>{
+        console.log(cords);
+        var user = users.getUser(socket.id);
+        if(user){
+            io.to(user.room).emit("newLocation", genrateLocationMessage(user.name,cords.latitude, cords.longitude));
+        }
     });
     
     socket.on("disconnect", ()=>{
         console.log("socket Disconnected ");
+        var user = users.removeUser(socket.id);
+        if(user){
+            io.to(user.room).emit('updateUserList', users.getUserList(user.room));
+            io.to(user.room).emit('newMessage', genrateMessage("Admin", `${user.name} is got Disconnected`));
+        }
     });
 });
 
