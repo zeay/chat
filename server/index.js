@@ -24,10 +24,14 @@ io.on("connection", (socket)=>{
     socket.on('join', (param, callback)=> {
         if(!realString(param.displayName) || !realString(param.roomName)){
             return callback("Name and Room Name must be there and schould be in string");
+        } 
+        if(users.getUserByName(param.displayName)){
+            return callback("User With Same Name already There Please Use Different Name.");
         }
-        socket.join(param.roomName);
+//        console.log(users.getUserByName(param.name));
         users.removeUser(socket.id);
         users.addUser(socket.id, param.displayName, param.roomName);
+        socket.join(param.roomName);
         
         io.to(param.roomName).emit("updateUserList", users.getUserList(param.roomName));
         socket.emit("newMessage", genrateMessage("Admin", "Welcome to the chat App"));

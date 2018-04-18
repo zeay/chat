@@ -50,6 +50,9 @@ socket.on("updateUserList", (users)=>{
     users.forEach((user)=>{
         ol.append($("<li></li>").text(user));
     })
+    $('#users').html(function(n){
+            return "";
+        });
     $("#users").append(ol);
 })
 
@@ -89,17 +92,12 @@ socket.on("newLocation", (locationData)=>{
 
 $('#message-form').on('submit', (e)=>{
     e.preventDefault();
-    
+    var message = document.getElementsByName("message");
     socket.emit('createMessage', userData= {
-        message: $("[name = message]").val(),
+        message: message[0].value,
     }, (ack)=>{
+        message[0].value = "";
         console.log("Send Message");
-/*        console.log("Got it", ack);
-        var selfli  = $('<li></li>');
-        console.log(userData)
-        selfli.text(`${userData.name} : ${userData.message}`);
-        $("#messages").append(selfli);
-        */
     });
 });
 // share Location Button and Geo Location ////////////
